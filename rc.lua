@@ -10,6 +10,8 @@ require("naughty")
 -- Load Debian menu entries
 require("debian.menu")
 
+require("vicious")
+
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
 -- another config (This code will only ever execute for the fallback config)
@@ -98,8 +100,89 @@ mylauncher = awful.widget.launcher({ image = image(beautiful.awesome_icon),
 -- }}}
 
 -- {{{ Wibox
+
+---- ALSA volume widget
+alsa_channel = "Master"
+alsa_step = "5%"
+alsa_color_unmute = "#AECF96"
+alsa_color_mute = "#FF5656"
+alsa_mixer = terminal .. " -e alsamixer" -- or whatever your preferred sound mixer is
+-- create widget
+alsawidget = awful.widget.progressbar()
+alsawidget:set_width(8)
+alsawidget:set_vertical(true)
+alsawidget:set_background_color("#494B4F")
+alsawidget:set_color("#AECF96")
+-- mouse bindings
+alsawidget.widget:buttons(awful.util.table.join(
+    awful.button({ }, 1, function()
+        awful.util.spawn(alsa_mixer)
+    end),
+    awful.button({ }, 3, function()
+        awful.util.spawn("amixer sset " .. alsa_channel .. " toggle")
+        vicious.force({ alsawidget })
+    end),
+    awful.button({ }, 4, function()
+        awful.util.spawn("amixer sset " .. alsa_channel .. " " .. alsa_step .. "+")
+        vicious.force({ alsawidget })
+    end),
+    awful.button({ }, 5, function()
+        awful.util.spawn("amixer sset " .. alsa_channel .. " " .. alsa_step .. "-")
+        vicious.force({ alsawidget })
+    end)
+))
+-- create tooltip
+alsawidget_tip = awful.tooltip({ objects = { alsawidget.widget }})
+vicious.register(alsawidget, vicious.widgets.volume, function (widget, args)
+    if args[2] == "♩" then
+        alsawidget_tip:set_text(" [Muted] ")
+        widget:set_gradient_colors({ alsa_color_mute, alsa_color_mute, alsa_color_mute })
+        return 100
+    end
+    widget:set_gradient_colors({ alsa_color_unmute, alsa_color_unmute, alsa_color_unmute })
+    alsawidget_tip:set_text(" " .. alsa_channel .. ": " .. args[1] .. "% ")
+    return args[1]
+end, 5, alsa_channel) -- relatively high update time, use of keys/mouse will force update
+
+-- RAM usage widget
+memwidget = awful.widget.progressbar()
+memwidget:set_width(15)
+memwidget:set_height(30)
+memwidget:set_vertical(true)
+memwidget:set_background_color('#494B4F')
+memwidget:set_color('#AECF96')
+memwidget:set_gradient_colors({ '#AECF96', '#88A175', '#FF5656' })
+
+-- RAM usage tooltip
+memwidget_t = awful.tooltip({ objects = { memwidget.widget },})
+
+vicious.cache(vicious.widgets.mem)
+vicious.register(memwidget, vicious.widgets.mem,
+                function (widget, args)
+                    memwidget_t:set_text(" RAM: " .. args[2] .. "MB / " .. args[3] .. "MB ")
+                    return args[1]
+                 end, 13)
+                 --update every 13 seconds
+
 -- Create a textclock widget
-mytextclock = awful.widget.textclock({ align = "right" })
+mytextclock = awful.widget.textclock()
+
+-- CPU usage widget
+cpuwidget = awful.widget.graph()
+cpuwidget:set_width(50)
+cpuwidget:set_height(30)
+cpuwidget:set_background_color("#494B4F")
+cpuwidget:set_color("#FF5656")
+cpuwidget:set_gradient_colors({ "#FF5656", "#88A175", "#AECF96" })
+
+cpuwidget_t = awful.tooltip({ objects = { cpuwidget.widget },})
+
+-- Register CPU widget
+vicious.register(cpuwidget, vicious.widgets.cpu, 
+                 function (widget, args)
+                    cpuwidget_t:set_text("CPU Usage: " .. args[1] .. "%")
+                    return args[1]
+                 end)
 
 -- Create a systray
 mysystray = widget({ type = "systray" })
@@ -180,6 +263,8 @@ for s = 1, screen.count() do
         },
         mylayoutbox[s],
         mytextclock,
+        alsawidget.widget,
+        cpuwidget.widget,
         s == 1 and mysystray or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft
@@ -252,6 +337,24 @@ globalkeys = awful.util.table.join(
                   mypromptbox[mouse.screen].widget,
                   awful.util.eval, nil,
                   awful.util.getdir("cache") .. "/history_eval")
+              end),
+
+    awful.key({ }, "XF86AudioRaiseVolume",
+              function()
+                 awful.util.spawn("amixer sset " .. alsa_channel .. " " .. alsa_step .. "+")
+                 vicious.force({ alsawidget })
+              end),
+
+    awful.key({ }, "XF86AudioLowerVolume",
+              function()
+                 awful.util.spawn("amixer sset " .. alsa_channel .. " " .. alsa_step .. "-")
+                 vicious.force({ alsawidget })
+              end),
+ 
+    awful.key({ }, "XF86AudioMute",
+              function()
+                 awful.util.spawn("amixer sset " .. alsa_channel .. " toggle")
+                 vicious.force({ alsawidget })
               end)
 )
 
@@ -376,3 +479,6 @@ end)
 client.add_signal("focus", function(c) c.border_color = beautiful.border_focus end)
 client.add_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
+
+
+
