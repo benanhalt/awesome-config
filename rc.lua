@@ -147,7 +147,6 @@ end, 5, alsa_channel) -- relatively high update time, use of keys/mouse will for
 -- RAM usage widget
 memwidget = awful.widget.progressbar()
 memwidget:set_width(15)
-memwidget:set_height(30)
 memwidget:set_vertical(true)
 memwidget:set_background_color('#494B4F')
 memwidget:set_color('#AECF96')
@@ -265,6 +264,7 @@ for s = 1, screen.count() do
         mytextclock,
         alsawidget.widget,
         cpuwidget.widget,
+        memwidget.widget,
         s == 1 and mysystray or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft
